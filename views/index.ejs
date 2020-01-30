@@ -1,0 +1,32 @@
+<%- include ("header") %>
+    <p/>
+    <div class="row">
+      <div class="col-md-3"></div>
+      <div class="col-md-6 d-flex justify-content-between buttonRow">
+        <div class="form-check" style="float: right;text-align: right;">
+          <input type="checkbox" class="form-check-input" id="checkSpeech" checked>
+          <label class="form-check-label" for="checkSpeech">Auto Text-To-Speech</label>
+        </div>     
+      </div>
+    </div>
+    <div class="row">
+      <div class="col-md-3"></div>
+      <div class="col-md-6 d-flex justify-content-between buttonRow">
+        <button id="btnSpeech" class="btn btn-primary" onclick="getSpeech()" >Speech Input</button>
+        <button class="btn btn-primary text-right" onclick="sendMessage()" >Send to Assistant</button>      
+      </div>
+    </div>
+    <div class="row">
+    <div class="col-md-3"></div>
+      <div class="input-group col-md-6">       
+          <input type="text" id="text" name="text" class="form-control" placeholder="Enter text sent to Watson">
+      </div>
+      </div>
+      <div class="row">
+        <div class="col-md-3"></div>
+        <div class="col-md-6 mt-2">
+          <div class="histLabel"><b>Conversation History:</b></div> 
+          <div id="history" class="text-left" ></div> 
+        </div>
+      </div>
+<%- include ("footer") %>

@@ -1,0 +1,441 @@
+******** Step 104 *****************
+{
+  "name": "speech-assistant",
+  "version": "1.0.0",
+  "description": "IBM Watson Speech/Assistant",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "IBM Ecosystem Advocacy Group (EAG)",
+  "license": "ISC"
+}
+***********************************
+******** Step 108 *****************
+const config = { 
+  watson: {
+    assistant: { 
+      iam_apikey: "<yourApiKey>", 
+      version: "2019-02-28",
+      url: "yourServiceUrl",
+      assistantId: "<yourAssistantId>" 
+    } 
+  } 
+}; 
+module.exports = config;
+***********************************
+******** Step 110 *****************
+const path = require('path');
+
+const express = require('express');
+const bodyParser = require('body-parser');
+const logger = require('morgan');
+
+const app = express();
+app.use(bodyParser.json({ limit: '1mb'}));
+app.use(express.static(path.join(__dirname, 'public')));
+app.use(logger('dev'));
+
+const port = process.env.PORT || 3000;
+app.set('view engine', 'ejs');
+app.set('views', 'views');
+
+const watsonRoutes = require('./routes/watson');
+app.use(watsonRoutes);
+
+app.use(function (requst, response) {
+  response.status(404).render("404");
+});
+
+app.listen(port, () => {
+  console.log('Express app started on port ' + port);
+})
+***********************************
+******** Step 111 *****************
+const express = require('express');
+
+const watsonController = require('../controllers/watson');
+
+const router = express.Router();
+
+router.get('/', watsonController.getIndex);
+
+router.post('/', watsonController.postMessage);
+
+module.exports = router;
+***********************************
+******** Step 112 *****************
+const AssistantV2 = require('ibm-watson/assistant/v2');
+const { IamAuthenticator } = require('ibm-watson/auth');
+const config = require('../config');
+
+const watsonAssistant = new AssistantV2({
+  version: config.watson.assistant.version,
+  authenticator: new IamAuthenticator({
+    apikey: config.watson.assistant.iam_apikey
+  }),
+  url: config.watson.assistant.url
+});
+
+let assistantSessionId = null;
+
+exports.getIndex = (req, res, next) => {
+  watsonAssistant.createSession({
+    assistantId: config.watson.assistant.assistantId
+  })
+  .then(result => {
+    assistantSessionId = result.result.session_id,
+    res.render('index');
+  })
+  .catch(err => {
+    res.status(404).json(err);
+  })
+}
+
+exports.postMessage = (req, res, next) => {
+  let text = "";
+  if (req.body.input) {
+    text = req.body.input.text;
+  }
+  watsonAssistant.message({
+    assistantId: config.watson.assistant.assistantId,
+    sessionId: assistantSessionId,
+    input: {
+      'message_type': 'text',
+      'text': text
+    }
+  })
+  .then(assistantResult => {
+    console.log(JSON.stringify(assistatntResult, null, 2));
+    res.json(assistantResult);  // just returns what is received from assistant
+  })
+  .catch(err => {   // after 5 minutes of inactivity the session is expired
+    res.status(404).json(err);
+  })
+}
+***********************************
+******** Step 114 *****************
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>EAG Watson Assistant Lab</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" crossorigin="anonymous">
+<link rel='stylesheet' href='/stylesheets/styles.css' /> 
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js" crossorigin="anonymous"></script>
+<script src="/js/scripts.js"></script>
+
+  </head>
+  <body onLoad="init()"> 
+    <div class="container" style="text-align: center"><body class="container">
+      <div class="row"><div class="col-md-12"><p><h2>IBM EAG Watson Assistant/Speech Lab</h2></p></div></div>
+***********************************
+******** Step 115 *****************
+      <p><small>IBM Ecosystem Advocacy Group – 2020</small></p>
+    </div>
+  </body>
+</html>
+***********************************
+******** Step 116 *****************
+<% include header %>
+<h2>404! Page not found.</h2>
+<% include footer %>
+***********************************
+******** Step 117 *****************
+<%- include ("header") %>
+<p/>
+<div class="row">
+  <div class="col-md-3"></div>
+  <div class="input-group col-md-6">
+   <input type="text" id="text" name="text" class="form-control" placeholder="Enter text sent to Watson">
+    <span class="input-group-btn">
+      <button class="btn btn-primary" onclick="sendMessage()" >Send</button>
+    </span>
+  </div>
+</div>
+<div class="row">
+  <div class="col-md-3"></div>
+  <div class="col-md-6 mt-2">
+    <div class="histLabel"><b>Conversation History:</b></div> 
+    <div id="history" class="text-left" ></div> 
+  </div>
+</div>
+<%- include ("footer") %>
+***********************************
+******** Step 120 *****************
+body {
+  padding: 50px;
+  font: 14px "Lucida Grande", Helvetica, Arial, sans-serif;
+}
+a {
+  color: #00B7FF;
+}
+.form-control {
+  margin-right: 5px;
+}
+.wa-user {
+  border-radius: 25px;
+  background: #F0E68C;
+  padding: 10px;
+  width: 90%;
+  text-align: right;
+  margin-bottom: 5px;
+  float: right;
+}
+
+.assistant {
+  border-radius: 25px;
+  background: #D3D3D3;
+  padding: 10px;
+  width: 90%;
+  margin-bottom: 5px;
+  float: left;
+}
+.histLabel {
+  margin-bottom: 5px;
+}
+***********************************
+******** Step 121 *****************
+var context = {};
+function updateChatLog(user, message) {
+  if (message) { 
+    var div = document.createElement("div");
+    if (user === 'Watson') {
+      div.className = 'assistant'; 
+    } else {
+      div.className = 'wa-user';
+    } 
+    div.innerHTML = "<b>" + user + ":</b> " + message + "<br/>";
+    document.getElementById("history").appendChild(div); 
+    document.getElementById("text").value = ""; 
+  } 
+}
+function sendMessage() { 
+  var text = document.getElementById("text").value; 
+  updateChatLog("You", text); 
+  var payload = {}; 
+  if (text) { 
+    payload.input = {"text": text};
+  };
+  if (context) {
+    payload.context = context;
+  }; 
+  var xhr = new XMLHttpRequest(); 
+  xhr.onreadystatechange = function() {
+    if (xhr.readyState == 4) {
+      if (xhr.status == 200) { 
+        var json = JSON.parse(xhr.responseText); 
+        context = json.context;
+        updateChatLog("Watson", json.result.output.generic[0].text);
+      } else { // the session may be expired
+        var json = JSON.parse(xhr.responseText);
+       var errText = json.code + " - " + json.message + " - Reload page for new session (timeout 5 min)";
+        updateChatLog("Watson", errText);
+      }
+    }
+  }
+  xhr.open("POST", "./", true);
+  xhr.setRequestHeader("Content-type", "application/json");
+  xhr.send(JSON.stringify(payload)); 
+}
+
+function init() {
+  document.getElementById("text").addEventListener("keydown", function(e) {
+    if (!e) {
+      var e = window.event;
+    }
+    if (e.keyCode == 13) {
+      sendMessage();
+    } 
+  }, false); 
+  sendMessage(); 
+} 
+***********************************
+******** Step 134 *****************
+if (text === "") {
+  return res.json(assistantResult);
+}
+console.log("Detected input: " + text);
+if (assistantResult.result.output.intents.length > 0) {
+  var intent = assistantResult.result.output.intents[0];
+  console.log("Detected intent: " + intent.intent);
+  console.log("Confidence: " + intent.confidence);
+}
+if (assistantResult.result.output.entities.length > 0) {
+  var entity = assistantResult.result.output.entities[0];
+  console.log("Detected entity: " + entity.entity);
+  console.log("Value: " + entity.value);
+  if ((entity.entity === 'help') && (entity.value === 'time')) {
+    var msg = 'The current time is ' + new Date().toLocaleTimeString();
+    console.log(msg);
+    assistantResult.result.output.generic[0].text = msg;
+  }
+}
+***********************************
+******** Step 152 *****************
+<% include header %>
+    <p/>
+    <div class="row">
+      <div class="col-md-3"></div>
+      <div class="col-md-6 d-flex justify-content-between buttonRow">
+        <div class="form-check" style="float: right;text-align: right;">
+          <input type="checkbox" class="form-check-input" id="checkSpeech" checked>
+          <label class="form-check-label" for="checkSpeech">Auto Text-To-Speech</label>
+        </div>     
+      </div>
+    </div>
+    <div class="row">
+      <div class="col-md-3"></div>
+      <div class="col-md-6 d-flex justify-content-between buttonRow">
+        <button id="btnSpeech" class="btn btn-primary" onclick="getSpeech()" >Speech Input</button>
+        <button class="btn btn-primary text-right" onclick="sendMessage()" >Send to Assistant</button>      
+      </div>
+    </div>
+    <div class="row">
+    <div class="col-md-3"></div>
+      <div class="input-group col-md-6">       
+          <input type="text" id="text" name="text" class="form-control" placeholder="Enter text sent to Watson">
+      </div>
+      </div>
+      <div class="row">
+        <div class="col-md-3"></div>
+        <div class="col-md-6 mt-2">
+          <div class="histLabel"><b>Conversation History:</b></div> 
+          <div id="history" class="text-left" ></div> 
+        </div>
+      </div>
+<% include footer %>
+***********************************
+******** Step 153 *****************
+.histLabel {
+  margin-bottom: 5px;
+}
+***********************************
+******** Step 154 *****************
+<script src="/js/watson-speech.js"></script>
+***********************************
+******** Step 155 *****************
+// Grab input from microphone and transform it to text
+function getSpeech() {
+  var btn = document.getElementById("btnSpeech");
+  btn.className = 'btn btn-danger';
+  fetch('/api/speech-to-text/token')
+    .then(function(response) {
+      return response.json();
+    }).then(function (token) {
+      var stream = WatsonSpeech.SpeechToText.recognizeMicrophone(Object.assign(token, {
+        model: 'en-US_BroadbandModel',
+        outputElement: '#text' // CSS selector or DOM Element
+      }));
+
+      stream.on('data', function(data) {
+        if(data.results[0] && data.results[0].final) {
+          stream.stop();
+          btn.className = 'btn btn-primary';
+          console.log('stop listening.');
+        }
+      });
+
+      stream.on('error', function(err) {
+        console.log(err);
+      });
+
+    }).catch(function(error) {
+      console.log(error);
+    });
+}
+***********************************
+******** Step 156 *****************
+// Automatically speek, when there is an result from Watson Assistant
+function speak(message) {
+  fetch('/api/text-to-speech/token')
+    .then(function(response) {
+      return response.json();
+    })
+    .then(function(token) {
+      const audio = WatsonSpeech.TextToSpeech.synthesize(Object.assign(token, {
+        text: message
+      }));
+      audio.onerror = function(err) {
+        console.log('audio error: ', err);
+      };
+    });
+}
+***********************************
+******** Step 157 *****************
+if (document.getElementById('checkSpeech').checked)
+  speak(json.result.output.generic[0].text);
+***********************************
+******** Step 158 *****************
+router.get('/api/speech-to-text/token', watsonController.getSttToken);
+
+router.get('/api/text-to-speech/token', watsonController.getTtsToken);
+***********************************
+******** Step 159 *****************
+const { IamAuthenticator, IamTokenManager } = require('ibm-watson/auth');
+***********************************
+******** Step 160 *****************
+const sttAuthenticator = new IamTokenManager({
+  apikey: config.watson.speechToText.iam_apikey
+});
+
+const ttsAuthenticator = new IamTokenManager({
+  apikey: config.watson.textToSpeech.iam_apikey
+});
+***********************************
+******** Step 161 *****************
+exports.getSttToken = (req, res, next) => {
+  return sttAuthenticator
+    .requestToken()
+    .then(({ result }) => {
+      res.json({ accessToken: result.access_token, url: config.watson.speechToText.url });
+    })
+    .catch(console.error);
+}
+
+exports.getTtsToken = (req, res, next) => {
+  return ttsAuthenticator
+    .requestToken()
+    .then(({ result }) => {
+      res.json({ accessToken: result.access_token, url: config.watson.textToSpeech.url });
+    })
+    .catch(console.error);
+}
+***********************************
+******** Step 162 *****************
+var config = { 
+  watson: {
+    assistant: { 
+      iam_apikey: "<yourApiKey>", 
+      version: "2019-02-28",
+      url: "yourServiceUrl",
+      assistantId: "<yourAssistantId>" 
+    },
+    speechToText: {
+      url: "<yourServiceUrl>",
+      iam_apikey: "<yourApiKey>"
+    },
+    textToSpeech: {
+      url: "<yourServiceUrl>",
+      iam_apikey: "<yourApiKey>"
+    }
+  } 
+}; 
+***********************************
+******** Step 104 *****************
+***********************************
+******** Step 104 *****************
+***********************************
+******** Step 104 *****************
+***********************************
+******** Step 104 *****************
+***********************************
+******** Step 104 *****************
+***********************************
+******** Step 104 *****************
+***********************************
+******** Step 104 *****************
+***********************************
+******** Step 104 *****************
+***********************************
