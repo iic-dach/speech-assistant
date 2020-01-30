@@ -1,3 +1,57 @@
+******** Step  83 *****************
+{
+  "output": {
+    "generic": [
+      {
+        "values": [
+          {
+            "text": "Welcome to CSAD Demo!"
+          }
+        ],
+        "response_type": "text",
+        "selection_policy": "sequential"
+      }
+    ]
+  },
+  "context": {
+    "private": {
+      "my_credentials": {
+        "api_key": "<yourCloudFunctionsAPIKey>"
+      }
+    },
+    "Alarmonoff": "off",
+    "app_action": ""
+  }
+}
+***********************************
+******** Step  86 *****************
+{
+  "output": {
+    "text": {
+      "values": [],
+      "selection_policy": "sequential"
+    }
+  },
+  "actions": [
+    {
+      "name": "/kpschxxxx.com_dev_gb/actions/Bluemix_kps-cloudintroDb_newkey/create-document",
+      "type": "server",
+      "parameters": {
+        "doc": {
+          "date": "$date",
+          "time": "$time",
+          "number": "$number",
+          "locations": "$locations"
+        },
+        "dbname": "reservations"
+      },
+      "credentials": "$private.my_credentials",
+      "result_variable": "$my_result"
+    }
+  ]
+}
+***********************************
+
 ******** Step 104 *****************
 {
   "name": "speech-assistant",
@@ -422,20 +476,3 @@ var config = {
     }
   } 
 }; 
-***********************************
-******** Step 104 *****************
-***********************************
-******** Step 104 *****************
-***********************************
-******** Step 104 *****************
-***********************************
-******** Step 104 *****************
-***********************************
-******** Step 104 *****************
-***********************************
-******** Step 104 *****************
-***********************************
-******** Step 104 *****************
-***********************************
-******** Step 104 *****************
-***********************************
