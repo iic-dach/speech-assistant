@@ -1,4 +1,5 @@
 const AssistantV2 = require('ibm-watson/assistant/v2');
+const DiscoveryV1 = require('ibm-watson/discovery/v1');
 const { IamAuthenticator, IamTokenManager } = require('ibm-watson/auth');
 const config = require('../config');
 
@@ -9,6 +10,13 @@ const watsonAssistant = new AssistantV2({
   }),
   url: config.watson.assistant.url
 });
+const watsonDiscovery = new DiscoveryV1({
+    version: config.watson.discovery.version,
+    authenticator: new IamAuthenticator({
+      apikey: config.watson.discovery.iam_apikey
+    }),
+    url: config.watson.discovery.url
+  });
 
 let assistantSessionId = null;
 
@@ -33,45 +41,69 @@ const ttsAuthenticator = new IamTokenManager({
   apikey: config.watson.textToSpeech.iam_apikey
 });
 
-exports.postMessage = (req, res, next) => {
-  let text = "";
-  if (req.body.input) {
-    text = req.body.input.text;
-  }
-  watsonAssistant.message({
-    assistantId: config.watson.assistant.assistantId,
-    sessionId: assistantSessionId,
-    input: {
-      'message_type': 'text',
-      'text': text
-    }
-  })
-  .then(assistantResult => {
-     if (text === "") {
-    return res.json(assistantResult);
+exports.postMessage = (req, res, next) => {
+  let text = '';
+  if (req.body.input) {
+    text = req.body.input.text;
   }
-  console.log("Detected input: " + text);
-  if (assistantResult.result.output.intents.length > 0) {
-    var intent = assistantResult.result.output.intents[0];
-    console.log("Detected intent: " + intent.intent);
-    console.log("Confidence: " + intent.confidence);
-  }
-  if (assistantResult.result.output.entities.length > 0) {
-    var entity = assistantResult.result.output.entities[0];
-    console.log("Detected entity: " + entity.entity);
-    console.log("Value: " + entity.value);
-    if ((entity.entity === 'help') && (entity.value === 'time')) {
-      var msg = 'The current time is ' + new Date().toLocaleTimeString();
-      console.log(msg);
-      assistantResult.result.output.generic[0].text = msg;
+  watsonAssistant.message({
+    assistantId: config.watson.assistant.assistantId,
+    sessionId: assistantSessionId,
+    input: {
+      'message_type': 'text',
+      'text': text
     }
-  } 
-  //console.log(JSON.stringify(assistantResult, null, 2));
-    res.json(assistantResult);  // just returns what is received from assistant
-  })
-  .catch(err => {   // after 5 minutes of inactivity the session is expired
-      res.status(404).json(err);
-  })
+  })
+  .then(assistantResult => {
+    console.log(JSON.stringify(assistantResult, null, 2));
+    if (text === '') {
+      return res.json(assistantResult);
+    }
+    console.log("Detected input: " + text);
+    if (assistantResult.result.output.intents.length > 0) {
+      var intent = assistantResult.result.output.intents[0];
+      console.log("Detected intent: " + intent.intent);
+      console.log("Confidence: " + intent.confidence);
+    }
+    if (assistantResult.result.output.entities.length > 0) {
+      var entity = assistantResult.result.output.entities[0];
+      console.log("Detected entity: " + entity.entity);
+      console.log("Value: " + entity.value);
+      if ((entity.entity === 'help') && (entity.value === 'time')) {
+        var msg = 'The current time is ' + new Date().toLocaleTimeString();
+        console.log(msg);
+        assistantResult.result.output.generic[0].text = msg;
+      }
+      if (intent != null && intent.intent === "out_of_scope" 
+              && assistantResult.result.output.entities.filter(val => val.entity === "cardevice").length > 0) {
+        let discoveryParams = {
+          'query': text,
+          'environmentId': config.watson.discoveryEnv.environmentId,
+          'collectionId': config.watson.discoveryEnv.collectionId,
+          'passages': true,
+          return: 'text, title, sourceUrl, passages'
+        };
+        watsonDiscovery.query(discoveryParams)
+        .then(discoveryResult => {
+          console.log(JSON.stringify(discoveryResult.result, null, 2));
+          assistantResult.result.output.generic[0].text = discoveryResult.result.passages[0].passage_text;
+          return res.json(assistantResult);
+        })
+        .catch(err => {
+          console.log('error:', err);
+          return res.json(err);
+        }); 
+      } else {
+        // console.log(JSON.stringify(assistantResult, null, 2)); 
+        res.json(assistantResult);
+      }
+    } else {
+      res.json(assistantResult);
+    }
+  })
+  .catch(err => {  // session expired -> invalid
+    res.status(404).json(err);
+  })
 }
 
 exports.getSttToken = (req, res, next) => {

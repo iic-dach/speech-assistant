@@ -476,3 +476,152 @@ var config = {
     }
   } 
 }; 
+***********************************
+******** Step 191 *****************
+var config = { 
+  watson: {
+    assistant: { 
+      iam_apikey: "<yourApiKey>", 
+      version: "2019-02-28",
+      url: "yourServiceUrl",
+      assistantId: "<yourAssistantId>" 
+    },
+    speechToText: {
+      url: "<yourServiceUrl>",
+      iam_apikey: "<yourApiKey>"
+    },
+    textToSpeech: {
+      url: "<yourServiceUrl>",
+      iam_apikey: "<yourApiKey>"
+    },
+    discovery: {
+      version: "2019-04-30",
+      iam_apikey: "<yourApiKey>",
+      url: "<yourServiceUrl>"
+    },
+    discoveryEnv: {
+      collectionId: "<your collectionId>",
+      environmentId: "<your environmentId>"
+    } 
+  } 
+}; 
+***********************************
+******** Step 193 *****************
+const DiscoveryV1 = require('ibm-watson/discovery/v1');
+***********************************
+******** Step 195 *****************
+const watsonDiscovery = new DiscoveryV1({
+  version: config.watson.discovery.version,
+  authenticator: new IamAuthenticator({
+    apikey: config.watson.discovery.iam_apikey
+  }),
+  url: config.watson.discovery.url
+});
+***********************************
+******** Step 196 *****************
+exports.postMessage = (req, res, next) => {
+  let text = '';
+  if (req.body.input) {
+    text = req.body.input.text;
+  }
+  watsonAssistant.message({
+    assistantId: config.watson.assistant.assistantId,
+    sessionId: assistantSessionId,
+    input: {
+      'message_type': 'text',
+      'text': text
+    }
+  })
+  .then(assistantResult => {
+    console.log(JSON.stringify(assistantResult, null, 2));
+    if (text === '') {
+      return res.json(assistantResult);
+    }
+    console.log("Detected input: " + text);
+    if (assistantResult.result.output.intents.length > 0) {
+      var intent = assistantResult.result.output.intents[0];
+      console.log("Detected intent: " + intent.intent);
+      console.log("Confidence: " + intent.confidence);
+    }
+    if (assistantResult.result.output.entities.length > 0) {
+      var entity = assistantResult.result.output.entities[0];
+      console.log("Detected entity: " + entity.entity);
+      console.log("Value: " + entity.value);
+      if ((entity.entity === 'help') && (entity.value === 'time')) {
+        var msg = 'The current time is ' + new Date().toLocaleTimeString();
+        console.log(msg);
+        assistantResult.result.output.generic[0].text = msg;
+      }
+      if (intent != null && intent.intent === "out_of_scope" 
+              && assistantResult.result.output.entities.filter(val => val.entity === "cardevice").length > 0) {
+        let discoveryParams = {
+          'query': text,
+          'environmentId': config.watson.discoveryEnv.environmentId,
+          'collectionId': config.watson.discoveryEnv.collectionId,
+          'passages': true,
+          return: 'text, title, sourceUrl, passages'
+        };
+        watsonDiscovery.query(discoveryParams)
+        .then(discoveryResult => {
+          console.log(JSON.stringify(discoveryResult.result, null, 2));
+          assistantResult.result.output.generic[0].text = discoveryResult.result.passages[0].passage_text;
+          return res.json(assistantResult);
+        })
+        .catch(err => {
+          console.log('error:', err);
+          return res.json(err);
+        }); 
+      } else {
+        // console.log(JSON.stringify(assistantResult, null, 2)); 
+        res.json(assistantResult);
+      }
+    } else {
+      res.json(assistantResult);
+    }
+  })
+  .catch(err => {  // session expired -> invalid
+    res.status(404).json(err);
+  })
+}
+***********************************
+******** Step 197 *****************
+function strip_html_tags(str) {
+  if ((str===null) || (str===''))
+    return false;
+  else
+   str = str.toString();
+  return str.replace(/<[^>]*>/g, '');
+}
+***********************************
+******** Step 198 *****************
+xhr.onreadystatechange = function() {
+    if (xhr.readyState == 4) {
+      if (xhr.status == 200) { 
+        var json = JSON.parse(xhr.responseText); 
+        context = json.context;
+        const genericRes = json.result.output.generic.filter(el => el.response_type === "text" || el.response_type === "search");
+        if (genericRes[0].response_type === "text") {
+          let plainText = strip_html_tags(genericRes[0].text).replace(/&.*;/, '');
+          updateChatLog("Watson", plainText);
+          console.log(plainText);
+          if (document.getElementById('checkSpeech').checked)
+            speak(plainText);
+        } else {
+          let title = "<b>" + json.result.output.generic[0].results[0].title + "</b><br/>";
+          let passage = title.concat(json.result.output.generic[0].results[0].body.substring(0, 100)).concat(' ...');
+          updateChatLog("Watson", passage);
+          if (document.getElementById('checkSpeech').checked)
+            speak(passage);
+        }   
+      } else {  // the session may be expired
+        var json = JSON.parse(xhr.responseText);
+        var errText = json.code + " - " + json.message + " - Reload page for new session (timeout 5 min)";
+        updateChatLog("Watson",  errText);
+
+      }
+    }
+  }
+***********************************
+******** Step 162 *****************
+***********************************
+******** Step 162 *****************

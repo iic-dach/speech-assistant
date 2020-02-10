@@ -12,6 +12,15 @@ function updateChatLog(user, message) {
     document.getElementById("text").value = ""; 
   } 
 }
+
+function strip_html_tags(str) {
+  if ((str===null) || (str===''))
+    return false;
+  else
+   str = str.toString();
+  return str.replace(/<[^>]*>/g, '');
+}
+
 function sendMessage() { 
   var text = document.getElementById("text").value; 
   updateChatLog("You", text); 
@@ -28,15 +37,25 @@ function sendMessage() {
       if (xhr.status == 200) { 
         var json = JSON.parse(xhr.responseText); 
         context = json.context;
-        updateChatLog("Watson", json.result.output.generic[0].text);
-        if (document.getElementById('checkSpeech').checked)
-            speak(json.result.output.generic[0].text);
-      } else { // the session may be expired
+        const genericRes = json.result.output.generic.filter(el => el.response_type === "text" || el.response_type === "search");
+        if (genericRes[0].response_type === "text") {
+          let plainText = strip_html_tags(genericRes[0].text).replace(/&.*;/, '');
+          updateChatLog("Watson", plainText);
+          console.log(plainText);
+          if (document.getElementById('checkSpeech').checked)
+            speak(plainText);
+        } else {
+          let title = "<b>" + json.result.output.generic[0].results[0].title + "</b><br/>";
+          let passage = title.concat(json.result.output.generic[0].results[0].body.substring(0, 100)).concat(' ...');
+          updateChatLog("Watson", passage);
+          if (document.getElementById('checkSpeech').checked)
+            speak(passage);
+        }   
+      } else {  // the session may be expired
         var json = JSON.parse(xhr.responseText);
-       var errText = json.code + " - " + json.message + " - Reload page for new session (timeout 5 min)";
-        updateChatLog("Watson", errText);
-        if (document.getElementById('checkSpeech').checked)
-            speak(json.result.output.generic[0].text);
+        var errText = json.code + " - " + json.message + " - Reload page for new session (timeout 5 min)";
+        updateChatLog("Watson",  errText);
+
       }
     }
   }
