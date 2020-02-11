@@ -6,6 +6,15 @@ var config = {
       url: "yourServiceUrl",
       assistantId: "<yourAssistantId>" 
     },
+    discovery: {
+      version: "2019-04-30",
+      iam_apikey: "<yourApiKey>B",
+      url: "<your service url>"
+    },
+    discoveryEnv: {
+      collectionId: "<collectionId>",
+      environmentId: "<environmentId>"
+    },
     speechToText: {
       url: "<yourServiceUrl>",
       iam_apikey: "<yourApiKey>"
